@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: timescaledb
+spec:
+  ports:
+    - protocol: "TCP"
+      port: 5432         
+  type: NodePort
+  selector:
+    app: timescaledb  
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: timescaledb-pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: timescaledb
+spec:
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: timescaledb   
+    spec:        
+      volumes:
+        - name: timescaledb-persistent-storage
+          persistentVolumeClaim:
+           claimName: timescaledb-pv-claim
+      containers:
+        - name: timescaledb
+          image: timescale/timescaledb
+          command: ["/bin/su"]
+          args: ["-s","/bin/sh","-c","/usr/lib/postgresql/9.6/bin/postgres -cshared_preload_libraries=timescaledb","postgres"]
+          ports:
+            - containerPort: 5432
+              name: "timescaledb"     
+          volumeMounts:
+          - mountPath: "/var/lib/postgresql/data"
+            name: timescaledb-persistent-storage
+          env:
+          - name: PGDATA
+            value: "/var/lib/postgresql/data/timescaledb"
+          - name: POSTGRES_USER
+            value: "postgres"
+          - name: PG_USER
+            value: "postgres"
